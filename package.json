@@ -1,0 +1,23 @@
+{
+  "name": "tam-quoc-truyen-ky",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "test": "playwright test"
+  },
+  "dependencies": {
+    "@fontsource-variable/playfair-display": "5.3.0",
+    "@fontsource/be-vietnam-pro": "5.3.0",
+    "lucide-react": "0.468.0",
+    "react": "19.0.0",
+    "react-dom": "19.0.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.61.1",
+    "vite": "7.3.1"
+  }
+}
