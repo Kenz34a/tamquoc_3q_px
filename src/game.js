@@ -166,6 +166,36 @@ export const STAGES = [
   },
 ];
 
+HEROES.forEach((hero) =>
+  Object.assign(hero, {
+    hpBase: 10000,
+    hpGrowth: 240,
+    attackBase: 1400,
+    attackGrowth: 64,
+  }),
+);
+STAGES.forEach((stage, index) =>
+  Object.assign(stage, { level: 12 + index * 8 }),
+);
+export const RULES = {
+  dailyGold: 5000,
+  dailyJade: 200,
+  dailyScrolls: 5,
+  battleStamina: 8,
+  summonJade: 200,
+  notice: "",
+  maintenance: false,
+};
+export const defaultConfig = () => ({
+  heroes: structuredClone(HEROES),
+  stages: structuredClone(STAGES),
+  rules: { ...RULES },
+});
+export function applyGameConfig(config) {
+  HEROES.splice(0, HEROES.length, ...config.heroes);
+  STAGES.splice(0, STAGES.length, ...config.stages);
+  Object.assign(RULES, config.rules);
+}
 export const SAVE_KEY = "tamquoc-truyenky-v1";
 export const COMBOS = [
   {
@@ -259,7 +289,14 @@ export const teamPower = (state) =>
     0,
   );
 export const upgradeCost = (level) => level * 180;
-export const enemyLevel = (stage) => 12 + stage * 8;
+export const enemyLevel = (stage) => STAGES[stage].level;
+export const heroStats = (id, level) => {
+  const hero = heroById(id);
+  return {
+    hp: hero.hpBase + level * hero.hpGrowth,
+    attack: hero.attackBase + level * hero.attackGrowth,
+  };
+};
 export const portraitPosition = (art) =>
   `${(art % 3) * 50}% ${Math.floor(art / 3) * 100}%`;
 export const freshState = () => ({
@@ -277,47 +314,65 @@ export const freshState = () => ({
   sound: false,
 });
 
+export function normalizeState(data) {
+  const base = freshState();
+  if (!data || data.version !== 1) return null;
+  for (const key of [
+    "gold",
+    "jade",
+    "stamina",
+    "scrolls",
+    "completed",
+    "victories",
+  ]) {
+    if (
+      !Number.isSafeInteger(data[key]) ||
+      data[key] < 0 ||
+      data[key] > 1000000000
+    )
+      return null;
+  }
+  if (data.completed > STAGES.length || data.stamina > 120) return null;
+  if (
+    !Array.isArray(data.team) ||
+    data.team.length !== 5 ||
+    new Set(data.team).size !== 5 ||
+    data.team.some((id) => !heroById(id))
+  )
+    return null;
+  if (
+    HEROES.some(
+      ({ id }) =>
+        !Number.isInteger(data.levels?.[id]) ||
+        data.levels[id] < 1 ||
+        data.levels[id] > 60 ||
+        !Number.isSafeInteger(data.shards?.[id]) ||
+        data.shards[id] < 0 ||
+        data.shards[id] > 1000000000,
+    )
+  )
+    return null;
+  return {
+    ...base,
+    ...Object.fromEntries(Object.keys(base).map((key) => [key, data[key]])),
+    team: [...data.team],
+    levels: Object.fromEntries(
+      HEROES.map((hero) => [hero.id, data.levels[hero.id]]),
+    ),
+    shards: Object.fromEntries(
+      HEROES.map((hero) => [hero.id, data.shards[hero.id]]),
+    ),
+    sound: data.sound === true,
+    dailyDate:
+      typeof data.dailyDate === "string" && data.dailyDate.length <= 10
+        ? data.dailyDate
+        : "",
+  };
+}
 export function loadState(storage) {
   try {
     const source = storage ?? window.localStorage;
-    const data = JSON.parse(source.getItem(SAVE_KEY));
-    const base = freshState();
-    if (!data || data.version !== 1) return base;
-    for (const key of [
-      "gold",
-      "jade",
-      "stamina",
-      "scrolls",
-      "completed",
-      "victories",
-    ]) {
-      if (!Number.isSafeInteger(data[key]) || data[key] < 0) return base;
-    }
-    if (data.completed > STAGES.length || data.stamina > 120) return base;
-    if (
-      !Array.isArray(data.team) ||
-      data.team.length !== 5 ||
-      new Set(data.team).size !== 5 ||
-      data.team.some((id) => !heroById(id))
-    )
-      return base;
-    if (
-      HEROES.some(
-        ({ id }) =>
-          !Number.isInteger(data.levels?.[id]) ||
-          data.levels[id] < 1 ||
-          data.levels[id] > 60 ||
-          !Number.isInteger(data.shards?.[id]) ||
-          data.shards[id] < 0,
-      )
-    )
-      return base;
-    return {
-      ...base,
-      ...data,
-      sound: data.sound === true,
-      dailyDate: typeof data.dailyDate === "string" ? data.dailyDate : "",
-    };
+    return normalizeState(JSON.parse(source.getItem(SAVE_KEY))) ?? freshState();
   } catch {
     return freshState();
   }
@@ -338,13 +393,14 @@ export function summon(count, random = Math.random) {
 export function makeBattle(state, stage) {
   const unit = (id, slot, enemy) => {
     const level = enemy ? enemyLevel(stage) : state.levels[id];
-    const maxHp = enemy ? 9000 + level * 280 : 10000 + level * 240;
+    const stats = heroStats(id, level);
+    const maxHp = enemy ? 9000 + level * 280 : stats.hp;
     return {
       id,
       slot,
       hp: maxHp,
       maxHp,
-      attack: enemy ? 1000 + level * 70 : 1400 + level * 64,
+      attack: enemy ? 1000 + level * 70 : stats.attack,
       energy: enemy ? 0 : 30,
     };
   };

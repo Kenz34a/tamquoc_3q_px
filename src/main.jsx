@@ -54,6 +54,9 @@ import {
 } from "lucide-react";
 import {
   HEROES,
+  RULES,
+  heroStats,
+  applyGameConfig,
   COMBOS,
   readyCombos,
   castCombo,
@@ -74,6 +77,10 @@ import {
   castSkill,
 } from "./game.js";
 import CityHub, { Chibi } from "./CityHub.jsx";
+import AccountPanel, { useAccount } from "./Account.jsx";
+import { api } from "./api.js";
+import "./admin.css";
+const Admin = React.lazy(() => import("./Admin.jsx"));
 import "./style.css";
 import "./game-feel.css";
 
@@ -264,6 +271,7 @@ function App() {
     (message) => setToast({ message, key: Date.now() }),
     [],
   );
+  const account = useAccount(state, setState, notify, !!activeBattle);
   const sound = useCallback(
     (kind = "tap") => {
       if (!state.sound) return;
@@ -352,22 +360,24 @@ function App() {
       return notify("Bạn đã nhận lễ hôm nay. Hẹn gặp vào ngày mai!");
     setState((s) => ({
       ...s,
-      gold: s.gold + 5000,
-      jade: s.jade + 200,
-      scrolls: s.scrolls + 5,
+      gold: s.gold + RULES.dailyGold,
+      jade: s.jade + RULES.dailyJade,
+      scrolls: s.scrolls + RULES.dailyScrolls,
       dailyDate: today(),
     }));
-    notify("Đã nhận 5.000 bạc, 200 ngọc và 5 chiêu mộ lệnh!");
+    notify(
+      `Đã nhận ${format(RULES.dailyGold)} bạc, ${format(RULES.dailyJade)} ngọc và ${RULES.dailyScrolls} chiêu mộ lệnh!`,
+    );
     sound("skill");
   };
   const startBattle = (index) => {
     if (index > state.completed)
       return notify("Hãy hoàn thành ải trước để mở khóa.");
-    if (state.stamina < 8) {
+    if (state.stamina < RULES.battleStamina) {
       setModal("supplies");
-      return notify("Cần 8 thể lực để xuất chinh.");
+      return notify(`Cần ${RULES.battleStamina} thể lực để xuất chinh.`);
     }
-    setState((s) => ({ ...s, stamina: s.stamina - 8 }));
+    setState((s) => ({ ...s, stamina: s.stamina - RULES.battleStamina }));
     setActiveBattle({ stage: index, snapshot: structuredClone(state) });
   };
   const finishBattle = (result, index) => {
@@ -387,7 +397,7 @@ function App() {
   const doSummon = (count) => {
     if (summoning) return;
     const scrollCost = Math.min(state.scrolls, count);
-    const jadeCost = (count - scrollCost) * 200;
+    const jadeCost = (count - scrollCost) * RULES.summonJade;
     if (state.jade < jadeCost)
       return notify(
         "Chưa đủ ngọc hoặc chiêu mộ lệnh. Hãy vượt ải và nhận lễ mỗi ngày.",
@@ -596,6 +606,11 @@ function App() {
         </header>
 
         <main className={`main-content page-${page}`}>
+          {RULES.notice && (
+            <div className="game-notice" role="status">
+              {RULES.notice}
+            </div>
+          )}
           {saveFailed && (
             <div className="save-warning">
               Trình duyệt không cho phép lưu tiến trình. Hãy bật bộ nhớ trang để
@@ -922,7 +937,7 @@ function App() {
                       {state.scrolls < 1 && (
                         <>
                           <Diamond size={12} />
-                          200
+                          {format(RULES.summonJade)}
                         </>
                       )}
                     </small>
@@ -937,7 +952,7 @@ function App() {
                       {state.scrolls < 10 && (
                         <>
                           <Diamond size={12} />
-                          {format((10 - state.scrolls) * 200)}
+                          {format((10 - state.scrolls) * RULES.summonJade)}
                         </>
                       )}
                     </small>
@@ -947,8 +962,9 @@ function App() {
               <div className="summon-guarantee">
                 <Shield size={19} />
                 <span>
-                  Ưu tiên dùng chiêu mộ lệnh; mỗi lượt còn thiếu tốn 200 ngọc.
-                  Tướng đã sở hữu được đổi thành mảnh để đột phá.
+                  Ưu tiên dùng chiêu mộ lệnh; mỗi lượt còn thiếu tốn{" "}
+                  {format(RULES.summonJade)} ngọc. Tướng đã sở hữu được đổi
+                  thành mảnh để đột phá.
                 </span>
               </div>
             </>
@@ -1008,12 +1024,12 @@ function App() {
                   <div>
                     <Heart size={15} />
                     <span>Sinh lực</span>
-                    <strong>{format(10000 + level * 240)}</strong>
+                    <strong>{format(heroStats(h.id, level).hp)}</strong>
                   </div>
                   <div>
                     <Swords size={15} />
                     <span>Công kích</span>
-                    <strong>{format(1400 + level * 64)}</strong>
+                    <strong>{format(heroStats(h.id, level).attack)}</strong>
                   </div>
                   <div>
                     <Medal size={15} />
@@ -1125,6 +1141,7 @@ function App() {
               inbox: "Thư từ thiên hạ",
               guide: "Cẩm nang chúa công",
               settings: "Cài đặt",
+              account: "Tài khoản & giftcode",
             }[modal]
           }
           onClose={() => setModal(null)}
@@ -1197,14 +1214,15 @@ function App() {
               <div className="letter-rewards">
                 <span>
                   <Coins size={20} />
-                  5.000
+                  {format(RULES.dailyGold)}
                 </span>
                 <span>
                   <Diamond size={20} />
-                  200
+                  {format(RULES.dailyJade)}
                 </span>
                 <span>
-                  <ScrollText size={20} />5
+                  <ScrollText size={20} />
+                  {RULES.dailyScrolls}
                 </span>
               </div>
               <GoldButton onClick={claimDaily} disabled={dailyClaimed}>
@@ -1238,7 +1256,7 @@ function App() {
                 {
                   icon: Swords,
                   title: "03. Xuất chinh thiên hạ",
-                  text: "Mỗi trận tốn 8 thể lực. Tướng tự công kích và tích nộ. Đủ 66 nộ có thể dùng tuyệt kỹ. Khi cả hai tướng trong một cặp đều còn sống và đủ 66 nộ, có thể dùng Hợp kích. Tự động ưu tiên hợp kích; tắt Tự động để tự chọn thời điểm.",
+                  text: `Mỗi trận tốn ${RULES.battleStamina} thể lực. Tướng tự công kích và tích nộ. Đủ 66 nộ có thể dùng tuyệt kỹ. Khi cả hai tướng trong một cặp đều còn sống và đủ 66 nộ, có thể dùng Hợp kích. Tự động ưu tiên hợp kích; tắt Tự động để tự chọn thời điểm.`,
                 },
                 {
                   icon: Trophy,
@@ -1258,8 +1276,42 @@ function App() {
               ))}
             </div>
           )}
+          {modal === "account" && (
+            <AccountPanel
+              account={account}
+              state={state}
+              onClose={() => setModal(null)}
+              notify={notify}
+            />
+          )}
           {modal === "settings" && (
             <div className="settings-content">
+              <div className="setting-row">
+                <span>
+                  <strong>Tài khoản & giftcode</strong>
+                  <small>
+                    {account.session
+                      ? account.session.account.username +
+                        " · " +
+                        (account.syncStatus === "synced"
+                          ? "Đã đồng bộ"
+                          : account.syncStatus === "saving"
+                            ? "Đang lưu…"
+                            : "Chưa đồng bộ")
+                      : "Chơi khách · Lưu trên trình duyệt"}
+                  </small>
+                </span>
+                <button
+                  className="outline-button account-setting-button"
+                  onClick={() => setModal("account")}
+                >
+                  {account.session ? "Tài khoản" : "Đăng nhập"}
+                </button>
+              </div>
+              <a href="/admin" className="account-admin-link">
+                <Shield size={15} />
+                Trang quản trị
+              </a>
               <div className="setting-row">
                 <span>
                   <strong>Âm thanh hiệu ứng</strong>
@@ -1286,15 +1338,18 @@ function App() {
               </div>
               <div className="settings-warning">
                 <p>
-                  Bắt đầu lại sẽ xóa toàn bộ tiến trình của game trên trình
-                  duyệt này.
+                  {account.session
+                    ? "Bắt đầu lại sẽ đặt lại tiến trình của tài khoản đang đăng nhập, bao gồm bản đồng bộ trên máy chủ."
+                    : "Bắt đầu lại sẽ xóa toàn bộ tiến trình của game trên trình duyệt này."}
                 </p>
                 <button
                   className="danger-button"
                   onClick={() => {
                     if (
                       window.confirm(
-                        "Bạn muốn xóa tiến trình và bắt đầu một hành trình mới?",
+                        account.session
+                          ? `Đặt lại tiến trình của ${account.session.account.username} trên máy chủ và trình duyệt?`
+                          : "Bạn muốn xóa tiến trình và bắt đầu một hành trình mới?",
                       )
                     ) {
                       setState(freshState());
@@ -1598,7 +1653,7 @@ function Battle({ state, stage, onFinish, sound }) {
         {confirmExit && (
           <div className="battle-paused">
             <span>Rút lui khỏi trận chiến?</span>
-            <p>8 thể lực đã dùng sẽ không được hoàn lại.</p>
+            <p>{RULES.battleStamina} thể lực đã dùng sẽ không được hoàn lại.</p>
             <div>
               <button
                 className="outline-button"
@@ -1761,4 +1816,68 @@ function Battle({ state, stage, onFinish, sound }) {
   );
 }
 
-createRoot(document.getElementById("root")).render(<App />);
+function GameBoot() {
+  const [ready, setReady] = useState(false);
+  const [offline, setOffline] = useState(false);
+  useEffect(() => {
+    let active = true;
+    api("/api/config")
+      .then((data) => {
+        if (active) applyGameConfig(data.config);
+      })
+      .catch(() => {
+        if (active) setOffline(true);
+      })
+      .finally(() => {
+        if (active) setReady(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+  if (!ready)
+    return (
+      <div className="game-loading">
+        <Crown size={34} />
+        Đang mở cổng Long Thành…
+      </div>
+    );
+  if (RULES.maintenance)
+    return (
+      <div className="game-maintenance">
+        <Shield size={45} />
+        <h1>Thiên hạ đang bảo trì</h1>
+        <p>
+          {RULES.notice ||
+            "Máy chủ đang được cập nhật. Chúa công vui lòng quay lại sau."}
+        </p>
+        <button
+          className="gold-button"
+          onClick={() => window.location.reload()}
+        >
+          Kiểm tra lại
+        </button>
+        <a href="/admin">Đăng nhập quản trị</a>
+      </div>
+    );
+  return (
+    <>
+      {offline && (
+        <div className="game-offline">
+          Chế độ cục bộ · Chưa kết nối được máy chủ.
+        </div>
+      )}
+      <App />
+    </>
+  );
+}
+createRoot(document.getElementById("root")).render(
+  <React.Suspense fallback={<div className="game-loading">Đang tải…</div>}>
+    {window.location.pathname === "/admin" ||
+    window.location.pathname.startsWith("/admin/") ? (
+      <Admin />
+    ) : (
+      <GameBoot />
+    )}
+  </React.Suspense>,
+);

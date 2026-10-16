@@ -1,24 +1,26 @@
 # Tam Quốc Truyền Kỳ
 
-Game web thẻ tướng Tam Quốc bằng tiếng Việt, với hình ảnh gốc được tạo riêng cho dự án. Chơi đơn trên trình duyệt, không cần tài khoản hoặc máy chủ game.
+Game web thẻ tướng Tam Quốc bằng tiếng Việt, với hình ảnh gốc, trang admin, tài khoản người chơi và máy chủ SQLite. Có thể chơi khách hoặc đăng ký để đồng bộ tiến trình.
+
+**Trang quản trị: `/admin`.** Xem [hướng dẫn tạo admin và vận hành máy chủ](ADMIN.md). Không có mật khẩu mặc định.
 
 ## Chạy game
 
-Yêu cầu Node.js 20.19+ hoặc 22.12+ (môi trường hiện tại dùng Node.js 24).
+Yêu cầu Node.js 24+ (SQLite tích hợp).
 
 ```bash
 npm ci
 npm run dev
 ```
 
-Vite chạy trên cổng 5173. Build để triển khai lên dịch vụ lưu trữ web tĩnh:
+Lệnh dev chạy Vite trên cổng 5173 và API nội bộ trên cổng 3001. Chạy bản build cùng máy chủ:
 
 ```bash
 npm run build
-npm run preview
+npm start
 ```
 
-Thư mục triển khai là `dist/`. Chưa có bản triển khai công khai.
+Máy chủ phục vụ `dist/`, `/admin` và API trên cổng 3001. `npm run preview` chỉ xem giao diện tĩnh. Chưa có bản triển khai công khai.
 
 ## Những gì có thể chơi
 
@@ -33,9 +35,9 @@ Thư mục triển khai là `dist/`. Chưa có bản triển khai công khai.
 - Nâng cấp tướng bằng bạc, nhận quà mỗi ngày, đổi ngọc lấy tiếp tế và bật/tắt âm thanh hiệu ứng.
 - Giao diện thích ứng với điện thoại, hỗ trợ bàn phím và tùy chọn giảm chuyển động của hệ thống.
 
-Tiến trình tự lưu bằng `localStorage` trên trình duyệt hiện tại. Quà ngày làm mới theo ngày tại Việt Nam. Trong Cài đặt có thể xóa tiến trình sau khi xác nhận. Khi trình duyệt chặn bộ nhớ, game vẫn chạy và hiển thị cảnh báo không lưu được.
+Chơi khách tự lưu bằng `localStorage`; đăng nhập lưu theo tài khoản trên máy chủ. Vào **Cài đặt → Tài khoản & giftcode** để đăng ký, đăng nhập và nhận mã. Quà ngày làm mới theo ngày tại Việt Nam. Cấu hình tướng, ải và phần thưởng có thể chỉnh từ admin. Dữ liệu máy chủ ở `.data/`, không được commit lên GitHub.
 
-Đây là bản chơi đơn cục bộ; chưa có PvP, đăng nhập, đồng bộ tài khoản hay thanh toán. Tài nguyên trong game không có giá trị tiền thật. Thiết kế và hình ảnh riêng, không sử dụng tài sản từ các game thương mại được nhắc làm cảm hứng.
+Trận đấu vẫn được tính trong trình duyệt; chưa có PvP, cơ chế xác minh phần thưởng/chống gian lận ở máy chủ hoặc thanh toán. Tài nguyên không có giá trị tiền thật. Thiết kế và hình ảnh riêng, không sử dụng tài sản từ các game thương mại được nhắc làm cảm hứng.
 
 ## Kiểm tra
 
@@ -43,12 +45,14 @@ Tiến trình tự lưu bằng `localStorage` trên trình duyệt hiện tại.
 npm test
 ```
 
-Bộ kiểm tra gồm 16 bài: luật giao chiến, hợp kích, hồi máu, điều kiện tung chiêu, cân bằng ải, chiêu mộ, dữ liệu lưu, nâng cấp, đội hình, thưởng chiến dịch và tương tác thành chính trên điện thoại. Playwright dùng Chromium có sẵn ở `/usr/bin/chromium`; trên máy khác, đặt biến `CHROMIUM_PATH` trỏ đến trình duyệt hoặc cài trình duyệt bằng `npx playwright install chromium`.
+Bộ kiểm tra gồm 16 bài game và 8 bài quản trị, dùng cơ sở dữ liệu tạm và tài khoản test riêng. Playwright dùng Chromium ở `/usr/bin/chromium`; trên máy khác, đặt biến `CHROMIUM_PATH` hoặc cài trình duyệt bằng `npx playwright install chromium`. Xem chi tiết trong [ADMIN.md](ADMIN.md).
 
 ## Cấu trúc
 
 - `src/game.js`: dữ liệu tướng, ải, tiến trình và bộ máy giao chiến thuần JavaScript.
 - `src/main.jsx`: giao diện React và các vòng chơi.
+- `src/Admin.jsx`, `src/Account.jsx`: quản trị, tài khoản và đồng bộ.
+- `server/`, `scripts/`: máy chủ, SQLite, xác thực và công cụ admin.
 - `src/CityHub.jsx`: thành chính tương tác và tướng chibi.
 - `src/game-feel.css`: giao diện thành chính, tướng toàn thân và hiệu ứng hợp kích.
 - `src/style.css`: giao diện, responsive và animation.

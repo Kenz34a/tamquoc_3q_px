@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import {
   COMBOS,
+  RULES,
   format,
   heroById,
   portraitPosition,
@@ -174,7 +175,8 @@ export default function CityHub({
           <ArrowRight size={18} />
         </button>
         <small>
-          <Zap size={11} />8 thể lực · {stage.difficulty}
+          <Zap size={11} />
+          {RULES.battleStamina} thể lực · {stage.difficulty}
         </small>
       </div>
       <div className="city-team">
